@@ -1,12 +1,17 @@
 from __future__ import unicode_literals
 
 from peewee import *
+from playhouse.sqlite_ext import RowIDField, SearchField, FTSModel
 
 db_proxy = Proxy()
 
 class BaseModel(Model):
     class Meta:
         database = db_proxy
+
+class BaseFTSModel(FTSModel):
+    class Meta:
+        database = db_proxy    
 
 class Artist(BaseModel):
     uri = TextField(
@@ -104,3 +109,29 @@ class Track(BaseModel):
         null=True
     )  # index ?
 
+
+class ArtistFTS(BaseFTSModel):
+    rowid = RowIDField()
+    uri = SearchField()
+    name = SearchField()
+
+class AlbumFTS(BaseFTSModel):
+    rowid = RowIDField()
+    uri = SearchField()
+    name = SearchField()
+    artist = SearchField()
+
+
+class TrackFTS(BaseFTSModel):
+    rowid = RowIDField()
+    uri = SearchField()
+    track_name = SearchField()
+    album = SearchField()
+    artist = SearchField()
+    composer = SearchField()
+    performer = SearchField()
+    albumartist = SearchField()
+    genre = SearchField()
+    track_no = SearchField()
+    date = SearchField()
+    comment = SearchField()
