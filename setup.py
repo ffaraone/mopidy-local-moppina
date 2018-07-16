@@ -13,7 +13,7 @@ def get_version(filename):
 
 setup(
     name='Mopidy-Local-Moppina',
-    version=get_version('mopidy_local-moppina/__init__.py'),
+    version=get_version('mopidy_local_moppina/__init__.py'),
     url='https://github.com/ffaraone/mopidy-local-moppina',
     license='Apache License, Version 2.0',
     author='Francesco Faraone',
@@ -30,7 +30,7 @@ setup(
     ],
     entry_points={
         'mopidy.ext': [
-            'local-moppina = mopidy_local-moppina:Extension',
+            'local-moppina = mopidy_local_moppina:Extension',
         ],
     },
     classifiers=[

@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 
-from mopidy_local-moppina import Extension, frontend as frontend_lib
+from mopidy_local_moppina import Extension, frontend as frontend_lib
 
 
 def test_get_default_config():
