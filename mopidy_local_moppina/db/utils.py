@@ -1,6 +1,8 @@
+import os
+import sys
 from hashlib import md5
 from mopidy.models import Artist, Album, Track
-
+from mopidy.local import translator
 
 def _get_artist(obj):
     return  Artist(
@@ -51,3 +53,40 @@ def calc_uri(model, data):
         md5(str(data)).hexdigest()
     )
 
+def check_artist(artist):
+    if not artist.name:
+        raise ValueError('No artist name')
+    return artist.copy(uri=artist.uri or calc_uri('artist', artist))
+
+def check_track(track):
+    if not track.uri:
+        raise ValueError('Track without URI')
+
+    name = ''
+    if track.name:
+        name = track.name
+    else:
+        path = translator.local_track_uri_to_path(track.uri, '')
+        name = os.path.basename(path).decode(sys.getfilesystemencoding(), 
+                                             errors='replace')
+
+    album = None
+    if track.album and track.album.name:
+        albumartist = None
+        if track.album.artists:
+            albumartist = map(check_artist, track.album.artists)
+        else:
+            albumartist = map(check_artist, track.artists)
+        album = track.album.copy(
+            uri=track.album.uri or calc_uri('album', track.album),
+            artists=albumartist
+        )
+    else:
+        raise ValueError('track without album')
+    return track.copy(
+        name=name,
+        album=album,
+        artists=map(check_artist, track.artists),
+        composers=map(check_artist, track.composers),
+        performers=map(check_artist, track.performers)
+    )

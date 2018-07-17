@@ -47,6 +47,10 @@ class MoppinaLibrary(local.Library):
 
     def add(self, track, tags=None, duration=None):
         self._database.upsert_track(track)
+        # try:
+            
+        # except Exception as e:
+        #     logger.exception('local-sqlite: cannot upsert track %s', track)
     
     def begin(self):
         return self._database.mopidy_tracks()

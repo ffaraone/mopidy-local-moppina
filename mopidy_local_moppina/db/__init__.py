@@ -6,7 +6,7 @@ from .models import (db_proxy, Artist, Album, Track, ArtistFTS,
                      AlbumFTS, TrackFTS)
 
 
-from .utils import to_track, calc_uri
+from .utils import to_track, check_track
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +49,6 @@ class Database():
         if not artists:
             return
         artist = next(iter(artists))
-        if not artist.uri:
-            artist = artist.copy(uri=calc_uri('artist', artist))
 
         db_artist, created = Artist.get_or_create(
             uri=artist.uri,
@@ -88,9 +86,7 @@ class Database():
 
     def _upsert_album(self, album):
         artists = self._upsert_artists(album.artists)
-
-        if not album.uri:
-            album = album.copy(uri=calc_uri('album', album))
+        logger.debug('local-moppina upsert album, artist: %s', artists)
         
         db_album, created = Album.get_or_create(
             uri=album.uri,
@@ -153,11 +149,11 @@ class Database():
 
 
     def upsert_track(self, track):
+        logger.debug('local-moppina: process track %s', track)
 
-        if not track.uri:
-            track = track.copy(uri=self._calc_uri('track', track))
+        track = check_track(track)
 
-        with self.db.atomic():
+        with self._db.atomic():
             album = None
             artists = None
             composers = None
