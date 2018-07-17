@@ -34,11 +34,7 @@ class MoppinaLibrary(local.Library):
             self._media_dir = config['local']['media_dir']
         except KeyError:
             raise ExtensionError('Mopidy-Local not enabled')
-        self._directories = []
-        # for line in ext_config['directories']:
-        #     name, uri = line.rsplit(None, 1)
-        #     ref = Ref.directory(uri=uri, name=name)
-        #     self._directories.append(ref)
+
         self._dbpath = os.path.join(self._data_dir, 'moppina.db')
         self._connection = SqliteExtDatabase(self._dbpath, pragmas={
             'journal_mode': 'wal',
@@ -53,19 +49,45 @@ class MoppinaLibrary(local.Library):
         self._database.upsert_track(track)
     
     def begin(self):
-        return self._database.tracks()
+        return self._database.mopidy_tracks()
 
     def browse(self, uri):
-        pass
+        try:
+            if uri == self.ROOT_DIRECTORY_URI:
+                return [
+                    Ref.directory(uri='local:artists', name='Artists'),
+                    Ref.directory(uri='local:albums', name='Albums'),
+                    Ref.directory(uri='local:tracks', name='Tracks')
+                ]
+            elif uri.startswith('local:artists'):
+                return [Ref.artist(uri=a.uri, name=a.name) \
+                    for a in self._database.artists()]
+            elif uri.startswith('local:albums'):
+                return [Ref.album(uri=a.uri, name=a.name) \
+                    for a in self._database.albums()]
+            elif uri.startswith('local:tracks'):
+                return [Ref.track(uri=t.uri, name=t.name) \
+                    for t in self._database.tracks()]
+            elif uri.startswith('local:artist'):
+                return [Ref.album(uri=a.uri, name=a.name) \
+                    for a in self._database.albums_by_artist(uri)]
+            elif uri.startswith('local:album'):
+                return [Ref.track(uri=t.uri, name=t.name) \
+                    for t in self._database.tracks_by_album(uri)]
+            else:
+                raise ValueError('Invalid browse URI')
+        except Exception as e:
+            logger.error('Error browsing %s: %s', uri, e)
+            return []
     
     def clear(self):
         pass
     
     def close(self):
-        pass
+        self._database.close()
 
     def flush(self):
-        pass
+        return True
 
     def get_distinct(self, field, query=None):
         pass
@@ -85,3 +107,4 @@ class MoppinaLibrary(local.Library):
     def search(self, query, limit=100, offset=0, exact=False, uris=None):
         pass
     
+

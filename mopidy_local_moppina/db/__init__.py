@@ -6,19 +6,19 @@ from .models import (db_proxy, Artist, Album, Track, ArtistFTS,
                      AlbumFTS, TrackFTS)
 
 
-from .utils import to_track
+from .utils import to_track, calc_uri
 
 logger = logging.getLogger(__name__)
 
 
 class Database():
     def __init__(self, db):
-        self.db = db
-        self.connect(self.db)
+        self._db = db
+        self.connect()
 
 
-    def connect(self, db):
-        db_proxy.initialize(db)
+    def connect(self):
+        db_proxy.initialize(self._db)
         db_proxy.create_tables([
             Artist, 
             Album, 
@@ -28,16 +28,8 @@ class Database():
             TrackFTS
         ])
 
-    # @db_proxy.on_update
-    # def on_update(query_type, db, table, rowid):
-    #     logger.info('%s row %s into table %s', query_type, rowid, table)
-
-
-    def _calc_uri(self, model, data):
-        return 'local:{}:md5:{}'.format(
-            model,
-            md5(str(data)).hexdigest()
-        )
+    def close(self):
+        self._db.close()
 
     def _upsert_artists_fts(self, artist):
         fts_artist, created = ArtistFTS.get_or_create(
@@ -58,7 +50,7 @@ class Database():
             return
         artist = next(iter(artists))
         if not artist.uri:
-            artist = artist.copy(uri=self._calc_uri('artist', artist))
+            artist = artist.copy(uri=calc_uri('artist', artist))
 
         db_artist, created = Artist.get_or_create(
             uri=artist.uri,
@@ -98,7 +90,7 @@ class Database():
         artists = self._upsert_artists(album.artists)
 
         if not album.uri:
-            album = album.copy(uri=self._calc_uri('album', album))
+            album = album.copy(uri=calc_uri('album', album))
         
         db_album, created = Album.get_or_create(
             uri=album.uri,
@@ -109,7 +101,7 @@ class Database():
                 num_discs=album.num_discs,
                 date=album.date,
                 musicbrainz_id=album.musicbrainz_id,
-                images=album.images
+                images=' '.join(album.images) if album.images else None
             )
         )
 
@@ -216,9 +208,32 @@ class Database():
         
             self._upsert_track_fts(db_track)
 
+    def mopidy_tracks(self):
+        return itertools.imap(to_track, self.tracks())
+
+    def artists(self):
+        return Artist.select().order_by(Artist.name)
+
+    def albums(self):
+        return Album.select().order_by(Album.artists, Album.name)
 
     def tracks(self):
-        return itertools.imap(to_track, Track.select())
+        return Track.select()
 
     def tracks_count(self):
         return Track.select().count()
+
+
+    def albums_by_artist(self, uri):
+        logger.debug('local-moppina: get albums for artist %s', uri)
+        return (Album.select()
+            .join(Artist)
+            .where(Artist.uri == uri)
+            .order_by(Album.name))
+
+
+    def tracks_by_album(self, uri):
+        return (Track.select()
+            .join(Album)
+            .where(Album.uri == uri)
+            .order_by(Track.track_no))

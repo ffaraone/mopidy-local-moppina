@@ -1,3 +1,4 @@
+from hashlib import md5
 from mopidy.models import Artist, Album, Track
 
 
@@ -43,4 +44,10 @@ def to_track(t):
 
     return Track(**data)
 
+
+def calc_uri(model, data):
+    return 'local:{}:md5:{}'.format(
+        model,
+        md5(str(data)).hexdigest()
+    )
 
