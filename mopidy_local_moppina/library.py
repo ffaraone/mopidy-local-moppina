@@ -14,8 +14,11 @@ from mopidy.local import translator
 from mopidy.models import Ref, SearchResult
 
 import uritools
+from playhouse.sqlite_ext import SqliteExtDatabase
 
 from . import Extension
+import db
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +40,20 @@ class MoppinaLibrary(local.Library):
         #     ref = Ref.directory(uri=uri, name=name)
         #     self._directories.append(ref)
         self._dbpath = os.path.join(self._data_dir, 'moppina.db')
-        self._connection = None
+        self._connection = SqliteExtDatabase(self._dbpath, pragmas={
+            'journal_mode': 'wal',
+            'cache_size': -1 * 64000,  # 64MB
+            'foreign_keys': 1,
+            'ignore_check_constraints': 0
+        })
+        self._database = db.Database(self._connection)
+
 
     def add(self, track, tags=None, duration=None):
-        pass
+        self._database.upsert_track(track)
     
     def begin(self):
-        pass
+        return self._database.tracks()
 
     def browse(self, uri):
         pass
@@ -64,7 +74,7 @@ class MoppinaLibrary(local.Library):
         pass
 
     def load(self):
-        pass
+        return self._database.tracks_count()
 
     def lookup(self, uri):
         pass

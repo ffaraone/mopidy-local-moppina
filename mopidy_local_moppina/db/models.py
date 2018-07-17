@@ -1,9 +1,15 @@
 from __future__ import unicode_literals
 
+import logging
 from peewee import *
 from playhouse.sqlite_ext import RowIDField, SearchField, FTSModel
 
+
+logger = logging.getLogger(__name__)
+
+
 db_proxy = Proxy()
+
 
 class BaseModel(Model):
     class Meta:
@@ -19,6 +25,9 @@ class Artist(BaseModel):
     )
     name = TextField(
         index=True
+    )
+    sortname = TextField(
+        null=True
     )
     musicbrainz_id = TextField(
         null=True
@@ -68,17 +77,20 @@ class Track(BaseModel):
     artists = ForeignKeyField(
         Artist, 
         backref='artist_tracks', 
-        index=True
+        index=True,
+        null=True
     )
     composers = ForeignKeyField(
         Artist, 
         backref='composer_tracks', 
-        index=True
+        index=True,
+        null=True
     )
     performers = ForeignKeyField(
         Artist, 
         backref='performer_tracks', 
-        index=True
+        index=True,
+        null=True
     )
     genre = TextField(
         null=True, 
