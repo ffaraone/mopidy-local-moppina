@@ -5,8 +5,8 @@ from hashlib import md5
 from .models import (db_proxy, Artist, Album, Track, ArtistFTS,
                      AlbumFTS, TrackFTS)
 
+from peewee import fn, SQL
 
-from .utils import to_track, check_track
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ class Database():
         ])
 
     def close(self):
+        self._db.execute_sql('ANALYZE')
         self._db.close()
 
     def clear(self):
@@ -164,8 +165,6 @@ class Database():
     def upsert_track(self, track):
         logger.debug('local-moppina: process track %s', track)
 
-        track = check_track(track)
-
         with self._db.atomic():
             album = None
             artists = None
@@ -217,8 +216,6 @@ class Database():
         
             self._upsert_track_fts(db_track)
 
-    def to_mopidy_tracks(self, tracks):
-        return itertools.imap(to_track, tracks)
 
     def artists(self):
         return Artist.select().order_by(Artist.name)
@@ -259,3 +256,81 @@ class Database():
 
     def delete_track(self, uri):
         Track.delete().where(Track.uri == uri)
+
+    def get_distinct(self, field, query):
+        model_field = getattr(TrackFTS, field, None)
+        if not model_field:
+            return set()
+
+        q = SQL('1 = 1')
+
+        for f, values in query.iteritems():
+            for value in values:
+                q &= getattr(TrackFTS, f) == value
+
+        
+        qs = TrackFTS.select(fn.Distinct(model_field)).where(q)
+        results = qs.scalar(as_tuple=True)
+        return set(results) if results else set()
+
+    def _search(self, model, query, limit, offset):
+        q = SQL('1 = 1')
+        for field, values in query.iteritems():
+            if field == 'any':
+                or_cond = SQL('1 = 0')
+                for field_name in model._meta.fields.keys():
+                    if field_name == 'id':
+                        continue
+                        for value in values:
+                            or_cond |= getattr(model, field_name) == value
+                q &= or_cond
+                continue
+                
+            if hasattr(model, field):
+                for value in values:
+                    q &= getattr(model, field) == value
+        
+        return model.select().where(q).limit(limit).offset(offset)        
+
+
+    def _fts_search(self, model, ftsmodel, query, limit, offset):
+        q = ftsmodel.match('')
+        for field_values in query.values():
+            for val in field_values:
+                q |= ftsmodel.match(val)
+
+
+        ids = (ftsmodel.select(ftsmodel.rowid).where(q)
+            .order_by(ftsmodel.bm25())
+            .limit(limit)
+            .offset(offset)
+            .scalar(as_tuple=True))
+
+        return model.select().where(model.id << ids)
+
+    # def _fts_artist_search(self, query, limit, offset):
+    #     q = ArtistFTS.match('')
+    #     for field_values in query.values():
+    #         for val in field_values:
+    #             q |= ArtistFTS.match(val)
+
+
+    #     # ids = (ArtistFTS.select(ArtistFTS.rowid).where(q)
+    #     #     .order_by(ArtistFTS.bm25())
+    #     #     .limit(limit)
+    #     #     .offset(offset)
+    #     #     .scalar(as_tuple=True))
+
+    #     return Artist.select().where(Artist.id << ids)
+
+    def search(self, query, limit, offset):
+        return (self._search(Artist, query, limit, offset),
+            self._search(Album, query, limit, offset),
+            self._search(Track, query, limit, offset))
+
+    def fts_search(self, query, limit, offset):
+        return (
+            self._fts_search(Artist, ArtistFTS, query, limit, offset),
+            self._fts_search(Album, AlbumFTS, query, limit, offset),
+            self._fts_search(Track, TrackFTS, query, limit, offset),
+        )

@@ -1,8 +1,8 @@
 from __future__ import unicode_literals
-
+import itertools
 import hashlib
 import logging
-import operator
+
 import os
 import os.path
 import sqlite3
@@ -17,6 +17,7 @@ import uritools
 from playhouse.sqlite_ext import SqliteExtDatabase
 
 from . import Extension
+from .utils import to_track, to_album, to_artist, check_track
 import db
 
 
@@ -42,18 +43,18 @@ class MoppinaLibrary(local.Library):
             'foreign_keys': 1,
             'ignore_check_constraints': 0
         })
-        self._database = db.Database(self._connection)
+        self._db = db.Database(self._connection)
+        logger.info('The Moppina library has started successfully')
 
 
     def add(self, track, tags=None, duration=None):
-        self._database.upsert_track(track)
-        # try:
-            
-        # except Exception as e:
-        #     logger.exception('local-sqlite: cannot upsert track %s', track)
+        try:
+            self._db.upsert_track(check_track(track))
+        except Exception as e:
+            logger.exception('Failed to add %s to the Moppina library')
     
     def begin(self):
-        return self._database.to_mopidy_tracks(self._database.tracks())
+        return itertools.imap(to_track, self._db.tracks())
 
     def browse(self, uri):
         try:
@@ -65,63 +66,85 @@ class MoppinaLibrary(local.Library):
                 ]
             elif uri.startswith('local:artists'):
                 return [Ref.artist(uri=a.uri, name=a.name) \
-                    for a in self._database.artists()]
+                    for a in self._db.artists()]
             elif uri.startswith('local:albums'):
                 return [Ref.album(uri=a.uri, name=a.name) \
-                    for a in self._database.albums()]
+                    for a in self._db.albums()]
             elif uri.startswith('local:tracks'):
                 return [Ref.track(uri=t.uri, name=t.name) \
-                    for t in self._database.tracks()]
+                    for t in self._db.tracks()]
             elif uri.startswith('local:artist'):
                 return [Ref.album(uri=a.uri, name=a.name) \
-                    for a in self._database.albums_by_artist(uri)]
+                    for a in self._db.albums_by_artist(uri)]
             elif uri.startswith('local:album'):
                 return [Ref.track(uri=t.uri, name=t.name) \
-                    for t in self._database.tracks_by_album(uri)]
+                    for t in self._db.tracks_by_album(uri)]
             else:
                 raise ValueError('Invalid browse URI')
         except Exception as e:
-            logger.error('Error browsing %s: %s', uri, e)
+            logger.error('Error while browsing Moppina library for %s: %s', 
+                         uri, e)
             return []
     
     def clear(self):
-        self._database.clear()
+        self._db.clear()
         return True
     
     def close(self):
-        self._database.close()
+        self._db.close()
 
     def flush(self):
         return True
 
     def get_distinct(self, field, query=None):
-        pass
+        return self._db.get_distinct(field, query or {})
 
     def load(self):
-        return self._database.tracks_count()
+        return self._db.tracks_count()
 
     def lookup(self, uri):
         if uri.startswith('local:album'):
-            return self._database.to_mopidy_tracks(
-                self._database.tracks_by_album(uri)
-            )
+            return itertools.imap(to_track, 
+                self._db.tracks_by_album(uri)
+            ))
         elif uri.startswith('local:artist'):
-            return self._database.to_mopidy_tracks(
-                self._database.tracks_by_artist(uri)
-            )
+            return itertools.imap(to_track, 
+                self._db.tracks_by_artist(uri)
+            ))
         elif uri.startswith('local:track'):
-            return self._database.to_mopidy_tracks(
-                self._database.tracks_by_uri(uri)
-            )
+            return itertools.imap(to_track, 
+                self._db.tracks_by_uri(uri)
+            ))
         else:
-            logger.error('Invalid lookup URI %s', uri)
+            logger.error('Error looking up the Moppina library: '
+                         'invalid lookup URI %s', uri)
             return []
 
     def remove(self, uri):
-        self._database.delete_track(uri)
+        self._db.delete_track(uri)
     
     def search(self, query, limit=100, offset=0, exact=False, uris=None):
-        pass
+        if not query:
+            tracks = self._db.tracks().limit(limit).offset(offset)
+            mopidy_tracks = itertools.imap(to_track, tracks)
+            return SearchResult(uri='local:search', tracks=mopidy_tracks)
+        artists = []
+        albums = []
+        tracks = []
+
+        if exact:
+            artists, albums, tracks = self._db.search(query, limit, offset)
+        else:
+            artists, albums, tracks = self._db.fts_search(query, limit, offset)
+
+        mopidy_artists = itertools.imap(to_artist, artists)
+        mopidy_albums = itertools.imap(to_album, albums)
+        mopidy_tracks = itertools.imap(to_track, tracks)
+        return SearchResult(uri='local:search', 
+                            artists=mopidy_artists,
+                            albums=mopidy_albums,
+                            tracks=mopidy_tracks)
+
 
 
     
