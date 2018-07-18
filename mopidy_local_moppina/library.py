@@ -53,7 +53,7 @@ class MoppinaLibrary(local.Library):
         #     logger.exception('local-sqlite: cannot upsert track %s', track)
     
     def begin(self):
-        return self._database.mopidy_tracks()
+        return self._database.to_mopidy_tracks(self._database.tracks())
 
     def browse(self, uri):
         try:
@@ -85,7 +85,8 @@ class MoppinaLibrary(local.Library):
             return []
     
     def clear(self):
-        pass
+        self._database.clear()
+        return True
     
     def close(self):
         self._database.close()
@@ -96,19 +97,32 @@ class MoppinaLibrary(local.Library):
     def get_distinct(self, field, query=None):
         pass
 
-    def get_images(uris):
-        pass
-
     def load(self):
         return self._database.tracks_count()
 
     def lookup(self, uri):
-        pass
+        if uri.startswith('local:album'):
+            return self._database.to_mopidy_tracks(
+                self._database.tracks_by_album(uri)
+            )
+        elif uri.startswith('local:artist'):
+            return self._database.to_mopidy_tracks(
+                self._database.tracks_by_artist(uri)
+            )
+        elif uri.startswith('local:track'):
+            return self._database.to_mopidy_tracks(
+                self._database.tracks_by_uri(uri)
+            )
+        else:
+            logger.error('Invalid lookup URI %s', uri)
+            return []
 
     def remove(self, uri):
-        pass
+        self._database.delete_track(uri)
     
     def search(self, query, limit=100, offset=0, exact=False, uris=None):
         pass
+
+
     
 

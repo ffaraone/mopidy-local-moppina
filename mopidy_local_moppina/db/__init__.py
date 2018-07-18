@@ -31,6 +31,19 @@ class Database():
     def close(self):
         self._db.close()
 
+    def clear(self):
+        logger.info('local-moppina: clear database')
+        with self._db.atomic():
+            self._db.execute_sql('DELETE FROM trackfts')
+            self._db.execute_sql('DELETE FROM track')
+            self._db.execute_sql('DELETE FROM albumfts')
+            self._db.execute_sql('DELETE FROM album')
+            self._db.execute_sql('DELETE FROM artistfts')
+            self._db.execute_sql('DELETE FROM artist')
+        self._db.execute_sql('VACUUM')
+
+        
+
     def _upsert_artists_fts(self, artist):
         fts_artist, created = ArtistFTS.get_or_create(
             rowid=artist.id,
@@ -204,8 +217,8 @@ class Database():
         
             self._upsert_track_fts(db_track)
 
-    def mopidy_tracks(self):
-        return itertools.imap(to_track, self.tracks())
+    def to_mopidy_tracks(self, tracks):
+        return itertools.imap(to_track, tracks)
 
     def artists(self):
         return Artist.select().order_by(Artist.name)
@@ -233,3 +246,16 @@ class Database():
             .join(Album)
             .where(Album.uri == uri)
             .order_by(Track.track_no))
+
+    def tracks_by_artist(self, uri):
+        return (Track.select()
+            .join(Album)
+            .join(Artist)
+            .where(Artist.uri == uri))
+    
+    def track_by_uri(self, uri):
+        return (Track.select()
+            .where(Track.uri == uri))
+
+    def delete_track(self, uri):
+        Track.delete().where(Track.uri == uri)
