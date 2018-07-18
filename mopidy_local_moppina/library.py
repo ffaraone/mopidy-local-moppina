@@ -60,7 +60,7 @@ class MoppinaLibrary(local.Library):
         return itertools.imap(to_track, self._db.tracks())
 
     def browse(self, uri):
-        loggger.info('Browse Moppina library for uri %s', uri)
+        logger.info('Browse Moppina library for uri %s', uri)
         try:
             if uri == self.ROOT_DIRECTORY_URI:
                 return [
