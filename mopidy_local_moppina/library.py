@@ -117,15 +117,15 @@ class MoppinaLibrary(local.Library):
         if uri.startswith('local:album'):
             return itertools.imap(to_track, 
                 self._db.tracks_by_album(uri)
-            ))
+            )
         elif uri.startswith('local:artist'):
             return itertools.imap(to_track, 
                 self._db.tracks_by_artist(uri)
-            ))
+            )
         elif uri.startswith('local:track'):
             return itertools.imap(to_track, 
                 self._db.tracks_by_uri(uri)
-            ))
+            )
         else:
             logger.error('Error looking up the Moppina library: '
                          'invalid lookup URI %s', uri)
