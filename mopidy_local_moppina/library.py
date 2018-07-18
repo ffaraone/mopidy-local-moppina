@@ -109,23 +109,24 @@ class MoppinaLibrary(local.Library):
     def load(self):
         logger.debug('Load the Moppina library')
         track_count = self._db.tracks_count()
-        logger.info('%s tracks has been loaded by Moppina library')
+        logger.info('%s tracks has been loaded by Moppina library', 
+                    track_count)
         return track_count
 
     def lookup(self, uri):
         logger.info('Lookup Moppina library for %s', uri)
         if uri.startswith('local:album'):
-            return itertools.imap(to_track, 
+            return list(itertools.imap(to_track, 
                 self._db.tracks_by_album(uri)
-            )
+            ))
         elif uri.startswith('local:artist'):
-            return itertools.imap(to_track, 
+            return list(itertools.imap(to_track, 
                 self._db.tracks_by_artist(uri)
-            )
+            ))
         elif uri.startswith('local:track'):
-            return itertools.imap(to_track, 
-                self._db.tracks_by_uri(uri)
-            )
+            return list(itertools.imap(to_track, 
+                self._db.track_by_uri(uri)
+            ))
         else:
             logger.error('Error looking up the Moppina library: '
                          'invalid lookup URI %s', uri)
@@ -141,6 +142,7 @@ class MoppinaLibrary(local.Library):
             tracks = self._db.tracks().limit(limit).offset(offset)
             mopidy_tracks = itertools.imap(to_track, tracks)
             return SearchResult(uri='local:search', tracks=mopidy_tracks)
+        
         artists = []
         albums = []
         tracks = []
@@ -150,9 +152,9 @@ class MoppinaLibrary(local.Library):
         else:
             artists, albums, tracks = self._db.fts_search(query, limit, offset)
 
-        mopidy_artists = itertools.imap(to_artist, artists)
-        mopidy_albums = itertools.imap(to_album, albums)
-        mopidy_tracks = itertools.imap(to_track, tracks)
+        mopidy_artists = list(itertools.imap(to_artist, artists))
+        mopidy_albums = list(itertools.imap(to_album, albums))
+        mopidy_tracks = list(itertools.imap(to_track, tracks))
         return SearchResult(uri='local:search', 
                             artists=mopidy_artists,
                             albums=mopidy_albums,

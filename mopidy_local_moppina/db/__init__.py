@@ -294,34 +294,21 @@ class Database():
 
 
     def _fts_search(self, model, ftsmodel, query, limit, offset):
+        logger.debug('Create fts search for model %s', model)
         q = ftsmodel.match('')
         for field_values in query.values():
             for val in field_values:
                 q |= ftsmodel.match(val)
 
-
-        ids = (ftsmodel.select(ftsmodel.rowid).where(q)
+        ids = [r.rowid for r in (ftsmodel.select(ftsmodel.rowid).where(q)
             .order_by(ftsmodel.bm25())
             .limit(limit)
-            .offset(offset)
-            .scalar(as_tuple=True))
+            .offset(offset))]
+
+        logger.debug('found this track ids: %s', ids)
 
         return model.select().where(model.id << ids)
 
-    # def _fts_artist_search(self, query, limit, offset):
-    #     q = ArtistFTS.match('')
-    #     for field_values in query.values():
-    #         for val in field_values:
-    #             q |= ArtistFTS.match(val)
-
-
-    #     # ids = (ArtistFTS.select(ArtistFTS.rowid).where(q)
-    #     #     .order_by(ArtistFTS.bm25())
-    #     #     .limit(limit)
-    #     #     .offset(offset)
-    #     #     .scalar(as_tuple=True))
-
-    #     return Artist.select().where(Artist.id << ids)
 
     def search(self, query, limit, offset):
         return (self._search(Artist, query, limit, offset),
