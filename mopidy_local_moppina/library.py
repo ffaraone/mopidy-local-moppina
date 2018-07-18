@@ -49,14 +49,18 @@ class MoppinaLibrary(local.Library):
 
     def add(self, track, tags=None, duration=None):
         try:
+            logger.debug('Try to add the track %s to the Moppina library', 
+                         track)
             self._db.upsert_track(check_track(track))
         except Exception as e:
             logger.exception('Failed to add %s to the Moppina library')
     
     def begin(self):
+        logger.debug('Begin scan local library with Moppina')
         return itertools.imap(to_track, self._db.tracks())
 
     def browse(self, uri):
+        loggger.info('Browse Moppina library for uri %s', uri)
         try:
             if uri == self.ROOT_DIRECTORY_URI:
                 return [
@@ -87,22 +91,29 @@ class MoppinaLibrary(local.Library):
             return []
     
     def clear(self):
+        logger.info('Clear the Moppina library database')
         self._db.clear()
         return True
     
     def close(self):
+        logger.info('Close the Moppina library database')
         self._db.close()
 
     def flush(self):
         return True
 
     def get_distinct(self, field, query=None):
+        logger.info('Moppina library get distinct for %s: %s', field, query)
         return self._db.get_distinct(field, query or {})
 
     def load(self):
-        return self._db.tracks_count()
+        logger.debug('Load the Moppina library')
+        track_count = self._db.tracks_count()
+        logger.info('%s tracks has been loaded by Moppina library')
+        return track_count
 
     def lookup(self, uri):
+        logger.info('Lookup Moppina library for %s', uri)
         if uri.startswith('local:album'):
             return itertools.imap(to_track, 
                 self._db.tracks_by_album(uri)
@@ -121,9 +132,11 @@ class MoppinaLibrary(local.Library):
             return []
 
     def remove(self, uri):
+        logger.info('Remove %s from the Moppina library')
         self._db.delete_track(uri)
     
     def search(self, query, limit=100, offset=0, exact=False, uris=None):
+        logger.info('Search the Moppina library for %s: %s', query, exact)
         if not query:
             tracks = self._db.tracks().limit(limit).offset(offset)
             mopidy_tracks = itertools.imap(to_track, tracks)
@@ -144,8 +157,3 @@ class MoppinaLibrary(local.Library):
                             artists=mopidy_artists,
                             albums=mopidy_albums,
                             tracks=mopidy_tracks)
-
-
-
-    
-

@@ -27,5 +27,7 @@ class Extension(ext.Extension):
         return schema
 
     def setup(self, registry):
+        logger.debug('Install Moppina library...')
         from .library import MoppinaLibrary
         registry.add('local:library', MoppinaLibrary)
+        logger.debug('Moppina library installed')
